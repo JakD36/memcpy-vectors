@@ -6,7 +6,11 @@
 using namespace std;
 using namespace glm;
 
-#define TIMESCALE std::chrono::microseconds
+#define TIMESCALE std::chrono::nanoseconds
+
+#define ROWS 100
+#define COLS 4'000'000
+
 
 inline TIMESCALE MemcpyTest(vector<int> &a, vector<ivec4> &b)
 {
@@ -14,13 +18,9 @@ inline TIMESCALE MemcpyTest(vector<int> &a, vector<ivec4> &b)
 
     auto start = chrono::high_resolution_clock::now();
 
-    // 1000 rows, 4000 columns in a
-    const int cols = 4000;
-    const int rows = 1000;
-
-    for(int i = 0; i < rows; ++i)
+    for(int i = 0; i < ROWS; ++i)
     {
-        memcpy(b.data() + i * cols/4, a.data() + (rows-1-i) * cols, cols * sizeof(int));
+        memcpy(b.data() + i * COLS/4, a.data() + (ROWS-1-i) * COLS, COLS * sizeof(int));
     }
 
 //    for (int i = 0; i < 10; ++i)
@@ -36,15 +36,12 @@ inline TIMESCALE ForLoopTest(vector<int> &a, vector<ivec4> &b)
 {
     auto start = chrono::high_resolution_clock::now();
 
-    const int cols = 4000;
-    const int rows = 1000;
-
-    for(int i = rows-1; i >= 0; --i)
+    for(int i = ROWS-1; i >= 0; --i)
     {
-        for(int j = 0; j < cols; j+=4)
+        for(int j = 0; j < COLS; j+=4)
         {
-            int startIndex = (rows - 1 - i) * cols + j;
-            b[i * cols/4 + j/4] = ivec4 {
+            int startIndex = (ROWS - 1 - i) * COLS + j;
+            b[i * COLS/4 + j/4] = ivec4 {
                 a[startIndex],
                 a[startIndex + 1],
                 a[startIndex + 2],
@@ -65,21 +62,25 @@ inline TIMESCALE ForLoopTest(vector<int> &a, vector<ivec4> &b)
 
 int main()
 {
-    vector<int> a = vector<int>(4'000'000);
-    vector<ivec4> b = vector<ivec4>(1'000'000);
+    vector<int> a = vector<int>(ROWS * COLS);
+    vector<ivec4> b = vector<ivec4>(ROWS * COLS / 4);
 
-    for(int i = 0; i < 4'000'000; ++i)
+    for(int i = 0; i < ROWS * COLS; ++i)
     {
         a[i] = i;
     }
 
 
     auto memcpyDuration = MemcpyTest(a,b);
-    cout << "Takes " << memcpyDuration << " us" << endl;
+    cout << "Memcpy Takes " << memcpyDuration.count() << " ns" << endl;
     auto forLoopDuration = ForLoopTest(a,b);
-    cout << "Takes " << forLoopDuration << " us" << endl;
+    cout << "Simple Assignment Takes " << forLoopDuration.count() << " ns" << endl;
 
     cout << "Memcpy is " << forLoopDuration.count() / (float)memcpyDuration.count() << "x faster" << endl;
 
     return 0;
 }
+
+// Takes 1731 us
+// Takes 15753 us
+// Memcpy is 9.10052x faster
